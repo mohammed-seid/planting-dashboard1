@@ -3,25 +3,20 @@ project:
   output-dir: docs
   
 website:
-  title: "MY WEB SITE"
+  title: "Ethiopia 2024 Planting Survey"
   navbar:
     left:
-      - href: index.qmd
-        text: Home
-      - projects.qmd
-    tools:
-      - icon: twitter
-        href: https://twitter.com/
-      - icon: github
-        href: https://github.com/YOURUSERNAME/YOURREPO
+      - href: plantng.qmd
   page-footer:
     right: "Built with [Quarto](https://quarto.org/)"
-    left: "&copy; Copyright 2023, YOUR NAME"
+    left: "&copy; Copyright 2024, Mohammed"
 
 format:
   html:
-    theme: cerulean
-    toc: true
+    theme:
+      - cosmo
+      - assets/styles/custom.scss
+      - assets/styles/quarto.scss
 
 editor: source
 

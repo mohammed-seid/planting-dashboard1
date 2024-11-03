@@ -1,0 +1,228 @@
+---
+format: dashboard
+
+theme: 
+  - cosmo
+  - assets/styles/custom.scss
+  - assets/styles/quarto.scss
+  
+execute: 
+  echo: false
+---
+
+
+
+```{r, loadpackages}
+#| echo: false
+#| include: false
+library(tidyverse)
+library(forcats)
+library(targets)
+library("googlesheets4")
+library(janitor)
+library(ggthemes)
+library(lubridate)
+library(plotly)
+library(highcharter)
+library(janitor)
+library(outliers)
+tar_source("R/formatting.R")
+```
+
+
+
+```{r, authenticate_googlesheet}
+#| echo: false
+#| include: false
+gs4_auth(cache = ".secrets", email = "mohammed.seidhussen@oneacrefund.org")
+
+```
+
+
+```{r, import_data}
+#| echo: false
+#| include: false
+df<- read_sheet("https://docs.google.com/spreadsheets/d/1jA-GzgXFwaPvqgUuniywHc8t3unz_Rsl0alHNx7sxgM/edit?gid=275273939#gid=275273939", "Sync Dataiku")
+
+```
+
+
+
+
+
+# KPI Data
+
+
+```{r, change_to_dataframe}
+#| echo: false
+#| include: false
+
+df <- data.frame(lapply(df, function(col) {
+    if (is.list(col)) {
+        return(sapply(col, function(x) if (length(x) > 0) x[1] else NA))  # Take the first element or NA
+    } else {
+        return(col)
+    }
+}), stringsAsFactors = FALSE)
+
+
+```
+
+
+
+```{r}
+df_completed <- df |> 
+  dplyr::filter(intro_consent.knows_info == 1)
+```
+
+
+
+```{r}
+df<-  df |> 
+  mutate(date = as.Date(completed_time))
+```
+
+```{r}
+df <- df |> 
+  filter(date > as.Date("2024-10-31"))
+```
+
+
+```{r}
+df_completed <- df |> 
+  dplyr::filter(intro_consent.knows_info == 1)
+```
+
+
+
+## Row 
+
+::: {.valuebox icon="arrow-repeat" color="vb-warning"}
+Total survey
+
+`r nrow(df)`
+
+
+:::
+
+
+::: {.valuebox icon="plus-circle" color="vb-info"}
+Total completed Survey
+
+`r nrow(df_completed)`
+
+:::
+
+
+
+```{r}
+
+na_count <- sum(is.na(df_completed$resp_category.oaf_direct))
+
+
+```
+
+
+::: {.valuebox icon="check-circle" color="vb-success"}
+Number of ghost farmer
+
+`r na_count`
+
+:::
+
+
+```{r}
+expected <- 4158
+
+percentage <- (nrow(df_completed) / expected) * 100
+```
+
+
+
+
+::: {.valuebox icon="clock" color="blue"}
+Percentage of Expected
+
+`r round(percentage, 1)`%
+
+:::
+
+
+
+## Row
+
+### Column {.tabset width="50%"}
+
+
+```{r}
+df_completed |> 
+  dplyr::count(username) %>%
+  arrange(-n) %>% 
+  hchart('bar', hcaes(x = 'username', y = 'n'), color_stops(n=4, colors = c("#F65A83", "#FF1E00", "#21E1E1", "#224B0C")))
+```
+
+
+### Column {.tabset width="50%"}
+
+```{r}
+
+total_collected_each_day <- df_completed |> 
+  mutate(date_only = as.Date(completed_time)) |> 
+  group_by(date_only) |> 
+  summarise(total_collected = n())
+
+
+
+
+# Step 2: Plot the time series
+total_collected_each_day |> ggplot(aes(x = date_only, y = total_collected)) +
+  geom_line() +
+  labs(title = "Daily Count of Usernames",
+       x = "Date",
+       y = "Count of Unique Usernames") +
+  theme_minimal()
+```
+
+
+
+```{r}
+
+# Step 1: Extract the date and count unique usernames per day
+total_collected_by_enumerator <- df_completed |> 
+  mutate(date_only = as.Date(completed_time)) |> 
+  group_by(date_only, username) |> 
+  summarise(total_collected = n(), .groups = 'drop')
+```
+
+
+```{r}
+
+df_completed$duration <- round(as.numeric(df_completed$completed_time - df_completed$started_time))
+
+duration_outliers <- scores(df_completed$duration[!is.na(df_completed$duration)], type = "z")
+
+for (i in 1:length(duration_outliers)) {
+  if(abs(duration_outliers[][i]) > 2) {
+    cat("Z Scores =", duration_outliers[][i], "Duration =",
+       df_completed$duration[i], "\n")
+  }
+}
+
+```
+
+```{r}
+# As a practice, we should look at enumerator level checks. Also, we may extend this for enumerator pairs or enumerator teams.
+
+################### Enumerator level average survey duration ########################
+
+overall_avg_duration <- mean(df_completed$duration[!is.na(df_completed$duration)])
+
+df_completed %>%
+  group_by(username) %>%
+  summarise(duration_mean = mean(duration),
+            overall_avg_duration,
+            perc_diff_avg = ((duration_mean - overall_avg_duration) / overall_avg_duration) * 100)
+
+```
+
+
