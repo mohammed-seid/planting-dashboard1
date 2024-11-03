@@ -6,6 +6,7 @@ website:
   title: "Ethiopia 2024 Planting Survey"
   navbar:
     left:
+      - text: "KPI Data"
       - href: plantng.qmd
   page-footer:
     right: "Built with [Quarto](https://quarto.org/)"

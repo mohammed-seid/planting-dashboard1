@@ -50,8 +50,6 @@ df<- read_sheet("https://docs.google.com/spreadsheets/d/1jA-GzgXFwaPvqgUuniywHc8
 
 
 
-# KPI Data
-
 
 ```{r, change_to_dataframe}
 #| echo: false
@@ -171,16 +169,9 @@ total_collected_each_day <- df_completed |>
   group_by(date_only) |> 
   summarise(total_collected = n())
 
+total_collected_each_day |> 
+  hchart('line', hcaes(x = 'date_only', y = 'total_collected'))
 
-
-
-# Step 2: Plot the time series
-total_collected_each_day |> ggplot(aes(x = date_only, y = total_collected)) +
-  geom_line() +
-  labs(title = "Daily Count of Usernames",
-       x = "Date",
-       y = "Count of Unique Usernames") +
-  theme_minimal()
 ```
 
 
@@ -192,6 +183,10 @@ total_collected_by_enumerator <- df_completed |>
   mutate(date_only = as.Date(completed_time)) |> 
   group_by(date_only, username) |> 
   summarise(total_collected = n(), .groups = 'drop')
+
+total_collected_by_enumerator |> 
+  hchart('line', hcaes(x = 'date_only', y = 'total_collected', group = username))
+
 ```
 
 
