@@ -26,6 +26,7 @@ library(plotly)
 library(highcharter)
 library(janitor)
 library(outliers)
+library(DT)
 tar_source("R/formatting.R")
 ```
 
@@ -42,7 +43,7 @@ gs4_auth(cache = ".secrets", email = "mohammed.seidhussen@oneacrefund.org")
 ```{r, import_data}
 #| echo: false
 #| include: false
-df<- read_sheet("https://docs.google.com/spreadsheets/d/1jA-GzgXFwaPvqgUuniywHc8t3unz_Rsl0alHNx7sxgM/edit?gid=275273939#gid=275273939", "Sync Dataiku")
+df<- read_sheet("https://docs.google.com/spreadsheets/d/1jA-GzgXFwaPvqgUuniywHc8t3unz_Rsl0alHNx7sxgM/edit?gid=275273939#gid=275273939", "Sync_Dataiku")
 
 ```
 
@@ -85,11 +86,6 @@ df <- df |>
   filter(date > as.Date("2024-10-31"))
 ```
 
-
-```{r}
-df_completed <- df |> 
-  dplyr::filter(intro_consent.knows_info == 1)
-```
 
 
 
@@ -156,7 +152,7 @@ Percentage of Expected
 df_completed |> 
   dplyr::count(username) %>%
   arrange(-n) %>% 
-  hchart('bar', hcaes(x = 'username', y = 'n'), color_stops(n=4, colors = c("#F65A83", "#FF1E00", "#21E1E1", "#224B0C")))
+  hchart('bar', hcaes(x = 'username', y = 'n')) |>  hc_legend(enabled = FALSE)
 ```
 
 
@@ -191,33 +187,52 @@ total_collected_by_enumerator |>
 
 
 ```{r}
-
-df_completed$duration <- round(as.numeric(df_completed$completed_time - df_completed$started_time))
-
-duration_outliers <- scores(df_completed$duration[!is.na(df_completed$duration)], type = "z")
-
-for (i in 1:length(duration_outliers)) {
-  if(abs(duration_outliers[][i]) > 2) {
-    cat("Z Scores =", duration_outliers[][i], "Duration =",
-       df_completed$duration[i], "\n")
-  }
-}
-
-```
-
-```{r}
 # As a practice, we should look at enumerator level checks. Also, we may extend this for enumerator pairs or enumerator teams.
 
 ################### Enumerator level average survey duration ########################
 
+df_completed$duration <- round(as.numeric(df_completed$completed_time - df_completed$started_time))
+
 overall_avg_duration <- mean(df_completed$duration[!is.na(df_completed$duration)])
 
-df_completed %>%
+summary_table<- df_completed %>%
   group_by(username) %>%
   summarise(duration_mean = mean(duration),
             overall_avg_duration,
-            perc_diff_avg = ((duration_mean - overall_avg_duration) / overall_avg_duration) * 100)
+            perc_diff_avg = ((duration_mean - overall_avg_duration) / overall_avg_duration))
 
+# Display the table using DT
+datatable(summary_table, options = list(
+  pageLength = 10,
+  autoWidth = TRUE,
+  columnDefs = list(list(className = 'dt-center', targets = "_all"))
+)) |> 
+  formatRound(columns = c('duration_mean', 'overall_avg_duration', 'perc_diff_avg'), digits = 2) %>%
+  formatPercentage('perc_diff_avg', digits = 2)
 ```
 
+
+```{r}
+df_completed |> 
+  filter(duration <= 15) |> 
+  select(username, formid, started_time, completed_time, duration) |>
+  datatable(options = list(
+    pageLength = 10,  # Number of rows per page
+    autoWidth = TRUE,  # Adjusts column width
+    columnDefs = list(list(className = 'dt-center', targets = "_all"))  # Center-align columns
+  )) %>%
+  formatRound(columns = 'duration', digits = 1)  # Round 'duration' to 2 decimal places
+```
+
+```{r}
+df_completed |> 
+  filter(duration > 120) |> 
+  select(username, formid, started_time, completed_time, duration) |>
+  datatable(options = list(
+    pageLength = 10,  # Number of rows per page
+    autoWidth = TRUE,  # Adjusts column width
+    columnDefs = list(list(className = 'dt-center', targets = "_all"))  # Center-align columns
+  )) %>%
+  formatRound(columns = 'duration', digits = 1)  # Round 'duration' to 2 decimal places
+```
 
