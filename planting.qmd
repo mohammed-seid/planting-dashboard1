@@ -150,9 +150,23 @@ Percentage of Expected
 
 ```{r}
 df_completed |> 
-  dplyr::count(username) %>%
-  arrange(-n) %>% 
+  dplyr::count(username) |> 
+  arrange(-n) |> 
   hchart('bar', hcaes(x = 'username', y = 'n')) |>  hc_legend(enabled = FALSE)
+```
+
+
+```{r}
+average_perday <- df_completed |> 
+  mutate(date_only = as.Date(completed_time)) |> 
+  group_by(username, date_only) |> 
+  summarise(total_collected = n(), .groups = 'drop') |> 
+  group_by(username) |> 
+  summarise(average_per_day = mean(total_collected)) |> arrange(-average_per_day)
+
+
+average_perday |> 
+  hchart('bar', hcaes(x = 'username', y = 'average_per_day'))
 ```
 
 
