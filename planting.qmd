@@ -205,7 +205,7 @@ total_collected_by_enumerator |>
 
 ################### Enumerator level average survey duration ########################
 
-df_completed$duration <- round(as.numeric(df_completed$completed_time - df_completed$started_time))
+df_completed$duration <- round(as.numeric(df_completed$completed_time - df_completed$started_time)/60)
 
 overall_avg_duration <- mean(df_completed$duration[!is.na(df_completed$duration)])
 
