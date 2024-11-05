@@ -3,13 +3,13 @@ project:
   output-dir: docs
   
 website:
-  title: "Ethiopia 2024 Planting Survey"
   navbar:
+    background: primary
+    search: true
     left:
       - text: "KPI Data"
         href: plantng.qmd
-      - text: "Survey Duration"
-        href: duration.qmd
+      - duration.qmd
 
 format:
   html:
