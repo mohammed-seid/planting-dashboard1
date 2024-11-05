@@ -1,11 +1,5 @@
 ---
 format: dashboard
-
-theme: 
-  - cosmo
-  - assets/styles/custom.scss
-  - assets/styles/quarto.scss
-  
 execute: 
   echo: false
 ---
@@ -70,13 +64,6 @@ df <- data.frame(lapply(df, function(col) {
 
 
 ```{r}
-df_completed <- df |> 
-  dplyr::filter(intro_consent.knows_info == 1)
-```
-
-
-
-```{r}
 df<-  df |> 
   mutate(date = as.Date(completed_time))
 ```
@@ -85,6 +72,14 @@ df<-  df |>
 df <- df |> 
   filter(date > as.Date("2024-10-31"))
 ```
+
+
+
+```{r}
+df_completed <- df |> 
+  dplyr::filter(intro_consent.knows_info == 1)
+```
+
 
 
 
@@ -147,6 +142,7 @@ Percentage of Expected
 
 ### Column {.tabset width="50%"}
 
+#### Total Surveys per Enumerator
 
 ```{r}
 df_completed |> 
@@ -155,6 +151,7 @@ df_completed |>
   hchart('bar', hcaes(x = 'username', y = 'n')) |>  hc_legend(enabled = FALSE)
 ```
 
+#### Daily Surveys per Enumerator
 
 ```{r}
 average_perday <- df_completed |> 
@@ -170,7 +167,10 @@ average_perday |>
 ```
 
 
+
 ### Column {.tabset width="50%"}
+
+#### Total survey per day
 
 ```{r}
 
@@ -185,6 +185,7 @@ total_collected_each_day |>
 ```
 
 
+#### Total survey per day per enumurator
 
 ```{r}
 
@@ -195,58 +196,7 @@ total_collected_by_enumerator <- df_completed |>
   summarise(total_collected = n(), .groups = 'drop')
 
 total_collected_by_enumerator |> 
-  hchart('line', hcaes(x = 'date_only', y = 'total_collected', group = username))
+  hchart('line', hcaes(x = 'date_only', y = 'total_collected', group = username)) |>  hc_legend(enabled = FALSE)
 
-```
-
-
-```{r}
-# As a practice, we should look at enumerator level checks. Also, we may extend this for enumerator pairs or enumerator teams.
-
-################### Enumerator level average survey duration ########################
-
-df_completed$duration <- round(as.numeric(df_completed$completed_time - df_completed$started_time)/60)
-
-overall_avg_duration <- mean(df_completed$duration[!is.na(df_completed$duration)])
-
-summary_table<- df_completed %>%
-  group_by(username) %>%
-  summarise(duration_mean = mean(duration),
-            overall_avg_duration,
-            perc_diff_avg = ((duration_mean - overall_avg_duration) / overall_avg_duration))
-
-# Display the table using DT
-datatable(summary_table, options = list(
-  pageLength = 10,
-  autoWidth = TRUE,
-  columnDefs = list(list(className = 'dt-center', targets = "_all"))
-)) |> 
-  formatRound(columns = c('duration_mean', 'overall_avg_duration', 'perc_diff_avg'), digits = 2) %>%
-  formatPercentage('perc_diff_avg', digits = 2)
-```
-
-
-```{r}
-df_completed |> 
-  filter(duration <= 15) |> 
-  select(username, formid, started_time, completed_time, duration) |>
-  datatable(options = list(
-    pageLength = 10,  # Number of rows per page
-    autoWidth = TRUE,  # Adjusts column width
-    columnDefs = list(list(className = 'dt-center', targets = "_all"))  # Center-align columns
-  )) %>%
-  formatRound(columns = 'duration', digits = 1)  # Round 'duration' to 2 decimal places
-```
-
-```{r}
-df_completed |> 
-  filter(duration > 120) |> 
-  select(username, formid, started_time, completed_time, duration) |>
-  datatable(options = list(
-    pageLength = 10,  # Number of rows per page
-    autoWidth = TRUE,  # Adjusts column width
-    columnDefs = list(list(className = 'dt-center', targets = "_all"))  # Center-align columns
-  )) %>%
-  formatRound(columns = 'duration', digits = 1)  # Round 'duration' to 2 decimal places
 ```
 

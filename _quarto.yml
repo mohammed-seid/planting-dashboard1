@@ -7,10 +7,9 @@ website:
   navbar:
     left:
       - text: "KPI Data"
-      - href: plantng.qmd
-  page-footer:
-    right: "Built with [Quarto](https://quarto.org/)"
-    left: "&copy; Copyright 2024, Mohammed"
+        href: plantng.qmd
+      - text: "Survey Duration"
+        href: duration.qmd
 
 format:
   html:
