@@ -1,7 +1,14 @@
 ---
-format: dashboard
-execute: 
-  echo: false
+title: "ETH 2024 Planting Survey"
+format: 
+  dashboard:
+    embed-resources: true
+theme:
+  - cosmo
+  - assets/styles/custom.scss
+  - assets/styles/quarto.scss
+execute:
+  warning: false
 ---
 
 
@@ -21,6 +28,8 @@ library(highcharter)
 library(janitor)
 library(outliers)
 library(DT)
+library(gt)
+library(lubridate)
 tar_source("R/formatting.R")
 ```
 
@@ -81,7 +90,7 @@ df_completed <- df |>
 ```
 
 
-
+# Overview 
 
 
 ## Row 
@@ -199,4 +208,186 @@ total_collected_by_enumerator |>
   hchart('line', hcaes(x = 'date_only', y = 'total_collected', group = username)) |>  hc_legend(enabled = FALSE)
 
 ```
+
+# Duration of the Survey
+
+
+```{r}
+df_completed$duration <- round(as.numeric(df_completed$completed_time - df_completed$started_time)/60)
+
+overall_avg_duration <- mean(df_completed$duration[!is.na(df_completed$duration)])
+
+overall_min_duration <- min(df_completed$duration[!is.na(df_completed$duration)])
+
+overall_max_duration <- max(df_completed$duration[!is.na(df_completed$duration)])
+```
+
+
+## Row 
+
+::: {.valuebox icon="arrow-repeat" color="vb-warning"}
+Average duration
+
+`r round(overall_avg_duration, 1)`
+
+
+:::
+
+
+::: {.valuebox icon="plus-circle" color="vb-info"}
+minimum duration
+
+`r overall_min_duration`
+
+:::
+
+
+
+::: {.valuebox icon="check-circle" color="vb-success"}
+Maximum Duration
+
+`r overall_max_duration`
+
+:::
+
+
+
+
+```{r}
+less_than_15_minutes<- df_completed |> 
+  filter(duration <= 15)
+```
+
+
+
+
+::: {.valuebox icon="clock" color="blue"}
+survey below 15 minutes
+
+`r nrow(less_than_15_minutes)`
+
+:::
+
+
+## Row
+
+### Column {.tabset width="50%"}
+
+
+#### Enumerator level average survey duration
+
+```{r}
+# As a practice, we should look at enumerator level checks. Also, we may extend this for enumerator pairs or enumerator teams.
+
+################### Enumerator level average survey duration ########################
+
+
+summary_table<- df_completed %>%
+  group_by(username) %>%
+  summarise(duration_mean = mean(duration),
+            overall_avg_duration,
+            perc_diff_avg = ((duration_mean - overall_avg_duration) / overall_avg_duration))
+
+# Display the table using DT
+datatable(summary_table, options = list(
+  pageLength = 10,
+  autoWidth = TRUE,
+  columnDefs = list(list(className = 'dt-center', targets = "_all"))
+)) |> 
+  formatRound(columns = c('duration_mean', 'overall_avg_duration', 'perc_diff_avg'), digits = 2) %>%
+  formatPercentage('perc_diff_avg', digits = 2)
+```
+
+#### Survey below 15 minutes 
+
+```{r}
+df_completed |> 
+  filter(duration <= 15) |> 
+  select(username, formid, started_time, completed_time, duration) |>
+  datatable(options = list(
+    pageLength = 10,  # Number of rows per page
+    autoWidth = TRUE,  # Adjusts column width
+    columnDefs = list(list(className = 'dt-center', targets = "_all"))  # Center-align columns
+  )) %>%
+  formatRound(columns = 'duration', digits = 1)  # Round 'duration' to 2 decimal places
+```
+
+#### Survey above average duration 
+
+```{r}
+df_completed |> 
+  filter(duration > mean(df_completed$duration[!is.na(df_completed$duration)])) |> 
+  select(username, formid, started_time, completed_time, duration) |>
+  datatable(options = list(
+    pageLength = 10,  # Number of rows per page
+    autoWidth = TRUE,  # Adjusts column width
+    columnDefs = list(list(className = 'dt-center', targets = "_all"))  # Center-align columns
+  )) |> 
+  formatRound(columns = 'duration', digits = 1)  # Round 'duration' to 2 decimal places
+```
+
+
+### Column {.tabset width="50%"}
+
+#### Survey between 7 PM and 6 AM
+
+```{r}
+df_completed |>
+  mutate(started_date = as.Date(started_time),          # Extract date
+         started_hour = hour(started_time)) |>          # Extract hour
+  filter(started_hour >= 19 | started_hour < 6) |>      # Filter for 7 PM to 6 AM
+  group_by(started_date) |>                             # Group by date
+  summarise(observations_7pm_to_6am = n(), .groups = 'drop') |>  # Count observations
+  gt() |>
+  tab_header(title = "Observations Starting Between 7 PM and 6 AM") |>
+  cols_label(
+    started_date = "Survey Date",
+    observations_7pm_to_6am = "Count of Observations"
+  ) |>
+  fmt_number(columns = observations_7pm_to_6am, decimals = 0) |>  # Format counts with no decimals
+  cols_align(align = "center", columns = everything())
+```
+
+
+#### Survey between 7 PM and 6 AM per enumurator
+
+```{r}
+df_completed |>
+  mutate(started_date = as.Date(started_time),          # Extract date
+         started_hour = hour(started_time)) |>          # Extract hour
+  filter(started_hour >= 19 | started_hour < 6) |>      # Filter for 7 PM to 6 AM
+  group_by(started_date, username) |>                   # Group by date and enumerator
+  summarise(observations_7pm_to_6am = n(), .groups = 'drop') |>  # Count observations
+  gt() |>
+  tab_header(title = "Observations Starting Between 7 PM and 6 AM per Enumerator") |>
+  cols_label(
+    started_date = "Survey Date",
+    username = "Enumerator",
+    observations_7pm_to_6am = "Count of Observations"
+  ) |>
+  fmt_number(columns = observations_7pm_to_6am, decimals = 0) |>
+  cols_align(align = "center", columns = everything())
+```
+
+
+#### Survey Records between 7 PM and 6 AM
+
+```{r}
+
+df_completed |>
+  mutate(started_hour = hour(started_time)) |>          # Extract hour
+  filter(started_hour >= 19 | started_hour < 6) |>      # Filter for 7 PM to 6 AM
+  select(username, formid, started_time) |>             # Select relevant columns
+  gt() |>
+  tab_header(title = "Survey Records Starting Between 7 PM and 6 AM") |>
+  cols_label(
+    username = "Enumerator",
+    formid = "Form ID",
+    started_time = "Start Time"
+  ) |>
+  cols_align(align = "center", columns = everything())
+
+```
+
+
 

@@ -7,9 +7,7 @@ website:
     background: primary
     search: true
     left:
-      - text: "KPI Data"
-        href: plantng.qmd
-      - duration.qmd
+      - href: plantng.qmd
 
 format:
   html:
