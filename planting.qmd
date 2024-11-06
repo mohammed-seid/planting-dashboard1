@@ -29,6 +29,7 @@ library(janitor)
 library(outliers)
 library(DT)
 library(gt)
+library(gtsummary)
 library(lubridate)
 tar_source("R/formatting.R")
 ```
@@ -390,4 +391,204 @@ df_completed |>
 ```
 
 
+
+# Key statistics 
+
+## Row
+
+### Column {.tabset width="50%"}
+
+#### catagorization
+```{r}
+
+df_completed |> select(resp_category.receive_tree, resp_category.oaf_direct, resp_category.receive_tree_inst, resp_category.inst_oaf_indirect) |> tbl_summary(missing="no", label = list(resp_category.receive_tree="Recived tree seedling from OAF and no-OAF",
+    resp_category.oaf_direct="Recived tree seedling from OAF (OAF Direct)",
+    resp_category.receive_tree_inst="Recived trees from instituitons",
+    resp_category.inst_oaf_indirect="Tree recived from institutions is OAF tree")) |>
+   modify_header(label = "**Respondent catagorization**") |> 
+    remove_row_type(type = "level", level_value = c("0", "dnk")) |> 
+  as_gt()
+
+```
+
+#### Demography 
+
+```{r}
+df_completed |> filter(resp_category.oaf_direct==1) |> 
+  mutate(youth = if_else(demo.mcf_list.m_nmales > 0 | demo.mcf_list.m_nfemales > 0, 1, 0)) |>  select(demo.gender, demo.marital_status, demo.hh_size_total, demo.age, youth) |> tbl_summary(statistic = all_continuous() ~ "{mean} ({min}, {max})", missing = "no", label = list(demo.gender="Gender of Respondent",
+    demo.marital_status="Marital Status",
+    demo.hh_size_total="Household Size",
+    demo.age="Age of the respondent",
+    youth="% of households with youth HH member")) |>
+   modify_header(label = "**Demographic characterstics of the respondents**") |> 
+    remove_row_type(type = "level", level_value = c("0", "dnk")) |> 
+  as_gt()
+
+```
+
+### Column {.tabset width="50%"}
+
+
+#### Adopters
+
+```{r}
+
+n_farmer<- df_completed |> 
+  filter(resp_category.oaf_direct == 1) |> 
+  select(starts_with("oaf_tree_got_")) |> 
+  summarise(across(everything(), ~ sum(replace_na(., 0)), .names = "sum_{col}")) |> 
+  pivot_longer(cols = everything(), 
+               names_to = "variable", 
+               values_to = "number of adopters") |> 
+  mutate(variable = sub("sum_oaf_tree_got_", "", variable)) 
+
+
+average_tree<- df_completed |> 
+  filter(resp_category.oaf_direct == 1) |> 
+  select(matches("^oaf_trees\\.oaf_.*num_got$")) |> 
+  summarise(across(everything(), ~ round(mean(., na.rm = TRUE), 1), .names = "mean_{col}")) |> 
+  pivot_longer(cols = everything(), 
+               names_to = "variable", 
+               values_to = "Average Tree taken from the survey") |> 
+  mutate(variable = sub("mean_oaf_trees.oaf_", "", variable)) |> 
+  mutate(variable = gsub("\\.num_got", " ", variable))
+
+
+troster_average<- df_completed |> 
+  filter(resp_category.oaf_direct == 1) |> 
+  select(matches("^num_oaf_.*_troster$")) |> 
+  summarise(across(everything(), ~ round(mean(na_if(., 0), na.rm = TRUE), 1), .names = "mean_{col}")) |> 
+  pivot_longer(cols = everything(), 
+               names_to = "variable", 
+               values_to = "Average tree taken from troster") |> 
+  mutate(variable = sub("mean_num_oaf_", "", variable)) |> 
+  mutate(variable = gsub("\\_troster", " ", variable))
+
+n_farmer <- n_farmer |> 
+  mutate(variable = str_replace_all(variable, " ", ""))
+
+average_tree <- average_tree |> 
+  mutate(variable = str_replace_all(variable, " ", ""))
+
+troster_average <- troster_average |> 
+  mutate(variable = str_replace_all(variable, " ", ""))
+
+
+
+question_1 <- n_farmer |> 
+  left_join(average_tree, by = "variable") |> 
+  left_join(troster_average, by = "variable") 
+
+
+question_1 |> 
+  mutate(perc_diff_avg = ((`Average Tree taken from the survey` - `Average tree taken from troster`) / `Average tree taken from troster`) * 100) |> 
+  rename("Percentage differenc from the troster"=perc_diff_avg,
+         "Species"=variable) |> gt()
+
+
+
+```
+
+# Tree Taken 
+
+## Column {.tabset }
+
+
+
+```{r}
+
+graph_data<- df_completed |> 
+  filter(resp_category.oaf_direct == 1) |> 
+  group_by(username) |> 
+  select(username, matches("^oaf_trees\\.oaf_.*num_got$")) |> 
+  summarise(across(everything(), ~ round(mean(., na.rm = TRUE), 1), .names = "mean_{col}")) |> 
+  pivot_longer(cols = -username, 
+               names_to = "variable", 
+               values_to = "Average_Tree_taken_from_the_survey") |> 
+  mutate(variable = sub("mean_oaf_trees.oaf_", "", variable),
+         variable = gsub("\\.num_got", "", variable))
+
+
+```
+
+
+### arezelib
+
+```{r}
+
+graph_data |> filter(variable=="arzelib") |> 
+  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
+
+```
+
+### coffee
+
+```{r}
+
+graph_data |> filter(variable=="coffee") |> 
+  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
+
+```
+
+
+### dec
+
+```{r}
+
+graph_data |> filter(variable=="dec") |> 
+  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
+
+```
+
+
+
+### gesho
+
+```{r}
+
+graph_data |> filter(variable=="gesho") |> 
+  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
+
+```
+
+
+### grev
+
+```{r}
+
+graph_data |> filter(variable=="grev") |> 
+  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
+
+```
+
+
+
+### moringa
+
+```{r}
+
+graph_data |> filter(variable=="moringa") |> 
+  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
+
+```
+
+
+### papaya
+
+```{r}
+
+graph_data |> filter(variable=="papaya") |> 
+  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
+
+```
+
+
+### wanza
+
+```{r}
+
+graph_data |> filter(variable=="wanza") |> 
+  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
+
+```
 
