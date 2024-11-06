@@ -152,16 +152,21 @@ Percentage of Expected
 
 ### Column {.tabset width="50%"}
 
-#### Total Surveys per Enumerator
+#### Total
 
 ```{r}
 df_completed |> 
   dplyr::count(username) |> 
   arrange(-n) |> 
-  hchart('bar', hcaes(x = 'username', y = 'n')) |>  hc_legend(enabled = FALSE)
+  hchart('bar', hcaes(x = 'username', y = 'n')) |> 
+  hc_legend(enabled = FALSE) |> 
+  hc_title(text = "Total Surveys per Enumerator") |>  # Add title here
+  hc_xAxis(title = list(text = NULL)) |>    # Remove x-axis label
+  hc_yAxis(title = list(text = NULL))       # Remove y-axis label
 ```
 
-#### Daily Surveys per Enumerator
+
+#### Daily
 
 ```{r}
 average_perday <- df_completed |> 
@@ -173,14 +178,18 @@ average_perday <- df_completed |>
 
 
 average_perday |> 
-  hchart('bar', hcaes(x = 'username', y = 'average_per_day'))
+  hchart('bar', hcaes(x = 'username', y = 'average_per_day')) |> 
+  hc_legend(enabled = FALSE) |> 
+  hc_title(text = "Daily Surveys per Enumerator") |>  # Add title here
+  hc_xAxis(title = list(text = NULL)) |>    # Remove x-axis label
+  hc_yAxis(title = list(text = NULL))       # Remove
 ```
 
 
 
 ### Column {.tabset width="50%"}
 
-#### Total survey per day
+#### Per day
 
 ```{r}
 
@@ -190,12 +199,16 @@ total_collected_each_day <- df_completed |>
   summarise(total_collected = n())
 
 total_collected_each_day |> 
-  hchart('line', hcaes(x = 'date_only', y = 'total_collected'))
+  hchart('line', hcaes(x = 'date_only', y = 'total_collected'))|> 
+  hc_legend(enabled = FALSE) |> 
+  hc_title(text = "Total survey per day") |>  # Add title here
+  hc_xAxis(title = list(text = NULL)) |>    # Remove x-axis label
+  hc_yAxis(title = list(text = NULL))       # Remove
 
 ```
 
 
-#### Total survey per day per enumurator
+#### Per enumurator
 
 ```{r}
 
@@ -206,7 +219,11 @@ total_collected_by_enumerator <- df_completed |>
   summarise(total_collected = n(), .groups = 'drop')
 
 total_collected_by_enumerator |> 
-  hchart('line', hcaes(x = 'date_only', y = 'total_collected', group = username)) |>  hc_legend(enabled = FALSE)
+  hchart('line', hcaes(x = 'date_only', y = 'total_collected', group = username)) |>  hc_legend(enabled = FALSE)|> 
+  hc_legend(enabled = FALSE) |> 
+  hc_title(text = "Enumurator productivity") |>  # Add title here
+  hc_xAxis(title = list(text = NULL)) |>    # Remove x-axis label
+  hc_yAxis(title = list(text = NULL))       # Remove
 
 ```
 
@@ -275,7 +292,7 @@ survey below 15 minutes
 ### Column {.tabset width="50%"}
 
 
-#### Enumerator level average survey duration
+#### Enumerator
 
 ```{r}
 # As a practice, we should look at enumerator level checks. Also, we may extend this for enumerator pairs or enumerator teams.
@@ -299,7 +316,7 @@ datatable(summary_table, options = list(
   formatPercentage('perc_diff_avg', digits = 2)
 ```
 
-#### Survey below 15 minutes 
+#### Below 15 
 
 ```{r}
 df_completed |> 
@@ -313,7 +330,7 @@ df_completed |>
   formatRound(columns = 'duration', digits = 1)  # Round 'duration' to 2 decimal places
 ```
 
-#### Survey above average duration 
+#### Above average 
 
 ```{r}
 df_completed |> 
@@ -330,7 +347,7 @@ df_completed |>
 
 ### Column {.tabset width="50%"}
 
-#### Survey between 7 PM and 6 AM
+#### Day
 
 ```{r}
 df_completed |>
@@ -350,7 +367,7 @@ df_completed |>
 ```
 
 
-#### Survey between 7 PM and 6 AM per enumurator
+#### Enumurator
 
 ```{r}
 df_completed |>
@@ -371,7 +388,7 @@ df_completed |>
 ```
 
 
-#### Survey Records between 7 PM and 6 AM
+#### Survey Records
 
 ```{r}
 
