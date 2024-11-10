@@ -5,14 +5,14 @@ project:
 website:
   navbar:
     background: primary
-    search: true
+    search: false
     left:
       - href: plantng.qmd
 
 format:
   html:
     theme:
-      - cosmo
+      - flatly
       - assets/styles/custom.scss
       - assets/styles/quarto.scss
 

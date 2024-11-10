@@ -31,6 +31,7 @@ library(DT)
 library(gt)
 library(gtsummary)
 library(lubridate)
+library(plotly)
 tar_source("R/formatting.R")
 ```
 
@@ -83,6 +84,11 @@ df <- df |>
   filter(date > as.Date("2024-10-31"))
 ```
 
+```{r}
+df <- df |> 
+  filter(username != "ajawa")
+```
+
 
 
 ```{r}
@@ -96,7 +102,7 @@ df_completed <- df |>
 
 ## Row 
 
-::: {.valuebox icon="arrow-repeat" color="vb-warning"}
+::: {.valuebox icon="arrow-repeat" color="vb-warning" style="padding: 3px 6px; font-size: 10px; height: 25px; line-height: 20px; margin: 0;"}
 Total survey
 
 `r nrow(df)`
@@ -105,10 +111,31 @@ Total survey
 :::
 
 
-::: {.valuebox icon="plus-circle" color="vb-info"}
+::: {.valuebox icon="plus-circle" color="vb-info" style="padding: 3px 6px; font-size: 10px; height: 25px; line-height: 20px; margin: 0;"}
 Total completed Survey
 
 `r nrow(df_completed)`
+
+:::
+
+
+```{r}
+
+# Calculate percentage of NAs by group
+name_notmuch <- df |> 
+  summarise(na_count = sum(is.na(intro_consent.consent)))
+
+refusal <- df |> 
+  summarise(refusal_count = sum(intro_consent.consent == 0, na.rm = TRUE))
+
+```
+
+
+::: {.valuebox icon="exclamation-circle" color="warning" style="padding: 3px 6px; font-size: 10px; height: 25px; line-height: 20px; margin: 0;"}
+Wrong number: `r name_notmuch`
+
+Refusal: `r refusal`
+
 
 :::
 
@@ -117,21 +144,47 @@ Total completed Survey
 ```{r}
 
 na_count <- sum(is.na(df_completed$resp_category.oaf_direct))
-
+na_percentage <- (na_count / nrow(df_completed)) * 100
 
 ```
 
 
-::: {.valuebox icon="check-circle" color="vb-success"}
-Number of ghost farmer
+::: {.valuebox icon="check-circle" color="vb-success" style="padding: 3px 6px; font-size: 10px; height: 25px; line-height: 20px; margin: 0;"}
+Percentage of ghost farmers
 
-`r na_count`
-
+`r round(na_percentage, 1)`%
 :::
 
 
 ```{r}
-expected <- 4158
+# Define start date
+start_date <- as.Date("2024-11-01")
+
+# Calculate the total number of weekdays since start_date
+total_weekdays <- sum(!weekdays(seq.Date(start_date, Sys.Date(), by = "day")) %in% c("Saturday", "Sunday"))
+
+# Calculate actual surveys (total number of rows in df_completed)
+actual <- nrow(df_completed)
+
+# Calculate target (25 enumerators * 6 surveys per day * number of weekdays)
+target <- 25 * 6 * total_weekdays
+
+# Calculate percentage of actual surveys compared to target
+percentage_actual_vs_target <- (actual / target) * 100
+
+```
+
+
+::: {.valuebox icon="clipboard-check" color="vb-info" style="padding: 3px 6px; font-size: 10px; height: 25px; line-height: 20px; margin: 0;"}
+Percentage of target
+
+`r round(percentage_actual_vs_target, 1)`%
+:::
+
+
+
+```{r}
+expected <- 4900
 
 percentage <- (nrow(df_completed) / expected) * 100
 ```
@@ -139,7 +192,7 @@ percentage <- (nrow(df_completed) / expected) * 100
 
 
 
-::: {.valuebox icon="clock" color="blue"}
+::: {.valuebox icon="clock" color="blue" style="padding: 3px 6px; font-size: 10px; height: 25px; line-height: 20px; margin: 0;"}
 Percentage of Expected
 
 `r round(percentage, 1)`%
@@ -152,38 +205,84 @@ Percentage of Expected
 
 ### Column {.tabset width="50%"}
 
-#### Total
+#### Total 
 
 ```{r}
-df_completed |> 
-  dplyr::count(username) |> 
-  arrange(-n) |> 
-  hchart('bar', hcaes(x = 'username', y = 'n')) |> 
-  hc_legend(enabled = FALSE) |> 
-  hc_title(text = "Total Surveys per Enumerator") |>  # Add title here
-  hc_xAxis(title = list(text = NULL)) |>    # Remove x-axis label
-  hc_yAxis(title = list(text = NULL))       # Remove y-axis label
+# Define start date
+start_date <- as.Date("2024-11-01")
+
+# Calculate the total number of weekdays since start_date
+total_weekdays <- sum(!weekdays(seq.Date(start_date, Sys.Date(), by = "day")) %in% c("Saturday", "Sunday"))
+
+# Set daily target
+daily_target <- 6
+total_target <- total_weekdays * daily_target
+
+# Calculate actual surveys per username
+df_summary <- df_completed |> 
+  count(username)
+
+# Plot actual surveys with a horizontal line for target
+plot_ly(data = df_summary) |> 
+  add_bars(
+    x = ~username, 
+    y = ~n, 
+    name = "Actual Surveys"
+  ) |> 
+  add_trace(
+    x = ~username, 
+    y = rep(total_target, length(df_summary$username)),  # Repeat target for each username
+    type = "scatter", 
+    mode = "lines", 
+    line = list(color = "red", dash = "dash"), 
+    name = "Target"
+  ) |> 
+  layout(
+    title = "Total Surveys per Enumerator vs Target",  
+    xaxis = list(title = NULL),             
+    yaxis = list(title = "Surveys"),          
+    showlegend = TRUE                         
+  )
+
 ```
 
 
 #### Daily
 
+
 ```{r}
+
+# Calculate average surveys per day per username
 average_perday <- df_completed |> 
   mutate(date_only = as.Date(completed_time)) |> 
   group_by(username, date_only) |> 
   summarise(total_collected = n(), .groups = 'drop') |> 
   group_by(username) |> 
-  summarise(average_per_day = mean(total_collected)) |> arrange(-average_per_day)
+  summarise(average_per_day = mean(total_collected)) |> 
+  arrange(-average_per_day)
 
-
-average_perday |> 
-  hchart('bar', hcaes(x = 'username', y = 'average_per_day')) |> 
-  hc_legend(enabled = FALSE) |> 
-  hc_title(text = "Daily Surveys per Enumerator") |>  # Add title here
-  hc_xAxis(title = list(text = NULL)) |>    # Remove x-axis label
-  hc_yAxis(title = list(text = NULL))       # Remove
+# Plot with Plotly
+plot_ly(data = average_perday, 
+        x = ~username, 
+        y = ~average_per_day, 
+        type = 'bar', 
+        name = 'Average per Day') |> 
+  add_trace(
+    x = ~username,               # Match the x-values (usernames)
+    y = rep(6, length(average_perday$username)),  # Horizontal line at y = 6
+    type = 'scatter', 
+    mode = 'lines', 
+    line = list(color = 'red', dash = 'dash'),  # Customize line style (red, dashed)
+    name = 'Target'
+  ) |> 
+  layout(
+    title = "Daily Surveys per Enumerator",  # Add title
+    xaxis = list(title = NULL),              # Remove x-axis label
+    yaxis = list(title = NULL),              # Remove y-axis label
+    showlegend = TRUE                        # Enable legend to show "Target" label
+  )
 ```
+
 
 
 
@@ -193,17 +292,26 @@ average_perday |>
 
 ```{r}
 
+
+# Calculate total surveys collected each day
 total_collected_each_day <- df_completed |> 
   mutate(date_only = as.Date(completed_time)) |> 
   group_by(date_only) |> 
   summarise(total_collected = n())
 
-total_collected_each_day |> 
-  hchart('line', hcaes(x = 'date_only', y = 'total_collected'))|> 
-  hc_legend(enabled = FALSE) |> 
-  hc_title(text = "Total survey per day") |>  # Add title here
-  hc_xAxis(title = list(text = NULL)) |>    # Remove x-axis label
-  hc_yAxis(title = list(text = NULL))       # Remove
+# Plot with Plotly
+plot_ly(data = total_collected_each_day, 
+        x = ~date_only, 
+        y = ~total_collected, 
+        type = 'scatter', 
+        mode = 'lines', 
+        name = 'Total Collected') |> 
+  layout(
+    title = "Total Survey per Day",          # Add title
+    xaxis = list(title = NULL),              # Remove x-axis label
+    yaxis = list(title = NULL),              # Remove y-axis label
+    showlegend = FALSE                       # Disable legend
+  )
 
 ```
 
@@ -227,17 +335,21 @@ total_collected_by_enumerator |>
 
 ```
 
+
 # Duration of the Survey
 
 
 ```{r}
-df_completed$duration <- round(as.numeric(df_completed$completed_time - df_completed$started_time)/60)
 
-overall_avg_duration <- mean(df_completed$duration[!is.na(df_completed$duration)])
+df_completed1 <- df_completed |> filter(resp_category.receive_tree==1) 
+  
+df_completed1$duration <- round(as.duration(interval(df_completed1$started_time, df_completed1$completed_time)) / dminutes(1))
 
-overall_min_duration <- min(df_completed$duration[!is.na(df_completed$duration)])
+overall_avg_duration <- mean(df_completed1$duration[!is.na(df_completed1$duration)])
 
-overall_max_duration <- max(df_completed$duration[!is.na(df_completed$duration)])
+overall_min_duration <- min(df_completed1$duration[!is.na(df_completed1$duration)])
+
+overall_max_duration <- max(df_completed1$duration[!is.na(df_completed1$duration)])
 ```
 
 
@@ -272,17 +384,17 @@ Maximum Duration
 
 
 ```{r}
-less_than_15_minutes<- df_completed |> 
-  filter(duration <= 15)
+less_than_8_minutes<- df_completed1 |> 
+  filter(duration <= 8)
 ```
 
 
 
 
 ::: {.valuebox icon="clock" color="blue"}
-survey below 15 minutes
+Survey below 8 minutes
 
-`r nrow(less_than_15_minutes)`
+`r nrow(less_than_8_minutes)`
 
 :::
 
@@ -294,33 +406,51 @@ survey below 15 minutes
 
 #### Enumerator
 
+
 ```{r}
-# As a practice, we should look at enumerator level checks. Also, we may extend this for enumerator pairs or enumerator teams.
+# Calculate summary statistics
+overall_avg_duration <- mean(df_completed1$duration, na.rm = TRUE)
 
-################### Enumerator level average survey duration ########################
-
-
-summary_table<- df_completed %>%
+summary_table <- df_completed1 %>%
   group_by(username) %>%
-  summarise(duration_mean = mean(duration),
-            overall_avg_duration,
-            perc_diff_avg = ((duration_mean - overall_avg_duration) / overall_avg_duration))
+  summarise(
+    duration_mean = mean(duration, na.rm = TRUE),
+    .groups = "drop"
+  )
 
-# Display the table using DT
-datatable(summary_table, options = list(
-  pageLength = 10,
-  autoWidth = TRUE,
-  columnDefs = list(list(className = 'dt-center', targets = "_all"))
-)) |> 
-  formatRound(columns = c('duration_mean', 'overall_avg_duration', 'perc_diff_avg'), digits = 2) %>%
-  formatPercentage('perc_diff_avg', digits = 2)
+# Create horizontal bar chart
+plot_ly(
+  data = summary_table,
+  x = ~duration_mean,
+  y = ~username,
+  type = "bar",
+  orientation = "h",  # Horizontal bar
+  name = "Average Duration"
+) %>%
+  add_trace(
+    x = rep(overall_avg_duration, nrow(summary_table)),  # Overall average value for each username
+    y = ~username,  # Match usernames for alignment
+    type = "scatter",
+    mode = "lines",
+    line = list(color = "red", dash = "dash"),  # Red dashed line for overall average
+    name = "Overall Average"
+  ) %>%
+  layout(
+    title = "Average Duration per User",
+    xaxis = list(title = "Average Duration (minutes)"),
+    yaxis = list(title = NULL),  # No y-axis title for simplicity
+    showlegend = TRUE  # Display legend for clarity
+  )
+
 ```
 
-#### Below 15 
+
+
+#### Below 8 
 
 ```{r}
-df_completed |> 
-  filter(duration <= 15) |> 
+df_completed1 |> 
+  filter(duration <= 8) |> 
   select(username, formid, started_time, completed_time, duration) |>
   datatable(options = list(
     pageLength = 10,  # Number of rows per page
@@ -330,11 +460,41 @@ df_completed |>
   formatRound(columns = 'duration', digits = 1)  # Round 'duration' to 2 decimal places
 ```
 
+
+#### Below 8 enumurator 
+
+```{r}
+# Filter and calculate counts for durations below 8 minutes
+summary_table <- df_completed1 |> 
+  filter(duration <= 8) |> 
+  group_by(username) |> 
+  summarise(count_below_8 = n(), .groups = "drop")
+
+# Create bar graph
+plot_ly(
+  data = summary_table,
+  x = ~username,
+  y = ~count_below_8,
+  type = "bar",
+  name = "Below 8 Minutes",
+  marker = list(color = "steelblue")  # Custom color
+) %>%
+  layout(
+    title = "Number of Observations with Duration Below 8 Minutes",
+    xaxis = list(title = "Username"),
+    yaxis = list(title = "Count"),
+    showlegend = FALSE  # Legend not needed for single series
+  )
+```
+
+
+
+
 #### Above average 
 
 ```{r}
-df_completed |> 
-  filter(duration > mean(df_completed$duration[!is.na(df_completed$duration)])) |> 
+df_completed1 |> 
+  filter(duration > mean(df_completed1$duration[!is.na(df_completed1$duration)])) |> 
   select(username, formid, started_time, completed_time, duration) |>
   datatable(options = list(
     pageLength = 10,  # Number of rows per page
@@ -347,63 +507,52 @@ df_completed |>
 
 ### Column {.tabset width="50%"}
 
-#### Day
-
-```{r}
-df_completed |>
-  mutate(started_date = as.Date(started_time),          # Extract date
-         started_hour = hour(started_time)) |>          # Extract hour
-  filter(started_hour >= 19 | started_hour < 6) |>      # Filter for 7 PM to 6 AM
-  group_by(started_date) |>                             # Group by date
-  summarise(observations_7pm_to_6am = n(), .groups = 'drop') |>  # Count observations
-  gt() |>
-  tab_header(title = "Observations Starting Between 7 PM and 6 AM") |>
-  cols_label(
-    started_date = "Survey Date",
-    observations_7pm_to_6am = "Count of Observations"
-  ) |>
-  fmt_number(columns = observations_7pm_to_6am, decimals = 0) |>  # Format counts with no decimals
-  cols_align(align = "center", columns = everything())
-```
-
-
-#### Enumurator
-
-```{r}
-df_completed |>
-  mutate(started_date = as.Date(started_time),          # Extract date
-         started_hour = hour(started_time)) |>          # Extract hour
-  filter(started_hour >= 19 | started_hour < 6) |>      # Filter for 7 PM to 6 AM
-  group_by(started_date, username) |>                   # Group by date and enumerator
-  summarise(observations_7pm_to_6am = n(), .groups = 'drop') |>  # Count observations
-  gt() |>
-  tab_header(title = "Observations Starting Between 7 PM and 6 AM per Enumerator") |>
-  cols_label(
-    started_date = "Survey Date",
-    username = "Enumerator",
-    observations_7pm_to_6am = "Count of Observations"
-  ) |>
-  fmt_number(columns = observations_7pm_to_6am, decimals = 0) |>
-  cols_align(align = "center", columns = everything())
-```
-
-
-#### Survey Records
+#### Night Survey
 
 ```{r}
 
-df_completed |>
+df_completed1 |>
   mutate(started_hour = hour(started_time)) |>          # Extract hour
   filter(started_hour >= 19 | started_hour < 6) |>      # Filter for 7 PM to 6 AM
-  select(username, formid, started_time) |>             # Select relevant columns
+  select(username, farmer_name, started_time) |>             # Select relevant columns
   gt() |>
   tab_header(title = "Survey Records Starting Between 7 PM and 6 AM") |>
   cols_label(
     username = "Enumerator",
-    formid = "Form ID",
+    farmer_name= "Farmer name",
     started_time = "Start Time"
   ) |>
   cols_align(align = "center", columns = everything())
+
+```
+
+
+
+#### enumurator
+
+```{r}
+# Calculate number of surveys per username for surveys starting between 7 PM and 6 AM
+summary_table <- df_completed1 |>
+  mutate(started_hour = hour(started_time)) |>  # Extract hour from started_time
+  filter(started_hour >= 19 | started_hour < 6) |>  # Keep surveys starting between 7 PM and 6 AM
+  group_by(username) |>  # Group by username
+  summarise(surveys_count = n(), .groups = "drop")  # Count surveys per username
+
+# Create horizontal bar chart using plotly
+plot_ly(
+  data = summary_table,
+  x = ~surveys_count,
+  y = ~username,
+  type = "bar",
+  orientation = "h",  # Horizontal bars
+  name = "Surveys Between 7 PM and 6 AM"
+) %>%
+  layout(
+    title = "Number of Surveys Starting Between 7 PM and 6 AM by Username",
+    xaxis = list(title = "Number of Surveys"),
+    yaxis = list(title = "Username"),
+    showlegend = FALSE
+  )
 
 ```
 
