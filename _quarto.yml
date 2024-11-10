@@ -12,7 +12,7 @@ website:
 format:
   html:
     theme:
-      - flatly
+      - Minty
       - assets/styles/custom.scss
       - assets/styles/quarto.scss
 
