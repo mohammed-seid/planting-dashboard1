@@ -158,7 +158,7 @@ Percentage of ghost farmers
 
 ```{r}
 # Define start date
-start_date <- as.Date("2024-11-01")
+start_date <- as.Date("2024-11-04")
 
 # Calculate the total number of weekdays since start_date
 total_weekdays <- sum(!weekdays(seq.Date(start_date, Sys.Date(), by = "day")) %in% c("Saturday", "Sunday"))
@@ -209,7 +209,7 @@ Percentage of Expected
 
 ```{r}
 # Define start date
-start_date <- as.Date("2024-11-01")
+start_date <- as.Date("2024-11-04")
 
 # Calculate the total number of weekdays since start_date
 total_weekdays <- sum(!weekdays(seq.Date(start_date, Sys.Date(), by = "day")) %in% c("Saturday", "Sunday"))
