@@ -1,5 +1,5 @@
 ---
-title: "ETH 2024 Planting Survey"
+title: "ETH 2025 Decurrence Tree Value Survey Dashboard"
 format: 
   dashboard:
     embed-resources: true
@@ -48,7 +48,7 @@ gs4_auth(cache = ".secrets", email = "mohammed.seidhussen@oneacrefund.org")
 ```{r, import_data}
 #| echo: false
 #| include: false
-df<- read_sheet("https://docs.google.com/spreadsheets/d/1jA-GzgXFwaPvqgUuniywHc8t3unz_Rsl0alHNx7sxgM/edit?gid=275273939#gid=275273939", "Sync_Dataiku")
+df<- read_sheet("https://docs.google.com/spreadsheets/d/1pej4wWw92xbIzlZ6maHG4cq9KZSMTKzSCAc01TX5K0s/edit?gid=731519399#gid=731519399", "Dataiku")
 
 ```
 
@@ -79,21 +79,11 @@ df<-  df |>
   mutate(date = as.Date(completed_time))
 ```
 
-```{r}
-df <- df |> 
-  filter(date > as.Date("2024-10-31"))
-```
-
-```{r}
-df <- df |> 
-  filter(username != "ajawa")
-```
-
 
 
 ```{r}
 df_completed <- df |> 
-  dplyr::filter(intro_consent.knows_info == 1)
+  dplyr::filter(ru_dec_past==1 | ru_dec_past==0.5| rq_dec_past==1 | rq_dec_past==0.5)
 ```
 
 
@@ -110,29 +100,17 @@ Total survey
 
 :::
 
-
-::: {.valuebox icon="plus-circle" color="vb-info" style="padding: 3px 6px; font-size: 10px; height: 25px; line-height: 20px; margin: 0;"}
-Total completed Survey
-
-`r nrow(df_completed)`
-
-:::
-
-
 ```{r}
 
-# Calculate percentage of NAs by group
-name_notmuch <- df |> 
-  summarise(na_count = sum(is.na(intro_consent.consent)))
+# Calculate percentage of refusal
 
 refusal <- df |> 
-  summarise(refusal_count = sum(intro_consent.consent == 0, na.rm = TRUE))
+  summarise(refusal_count = sum(consent == 0, na.rm = TRUE))
 
 ```
 
 
 ::: {.valuebox icon="exclamation-circle" color="warning" style="padding: 3px 6px; font-size: 10px; height: 25px; line-height: 20px; margin: 0;"}
-Wrong number: `r name_notmuch`
 
 Refusal: `r refusal`
 
@@ -140,25 +118,17 @@ Refusal: `r refusal`
 :::
 
 
+::: {.valuebox icon="plus-circle" color="vb-info" style="padding: 3px 6px; font-size: 10px; height: 25px; line-height: 20px; margin: 0;"}
+Total Eligible Respondents
 
-```{r}
+`r nrow(df_completed)`
 
-na_count <- sum(is.na(df_completed$resp_category.oaf_direct))
-na_percentage <- (na_count / nrow(df_completed)) * 100
-
-```
-
-
-::: {.valuebox icon="check-circle" color="vb-success" style="padding: 3px 6px; font-size: 10px; height: 25px; line-height: 20px; margin: 0;"}
-Percentage of ghost farmers
-
-`r round(na_percentage, 1)`%
 :::
 
 
 ```{r}
 # Define start date
-start_date <- as.Date("2024-11-04")
+start_date <- as.Date("2025-03-13")
 
 # Calculate the total number of weekdays since start_date
 total_weekdays <- sum(!weekdays(seq.Date(start_date, Sys.Date(), by = "day")) %in% c("Saturday", "Sunday"))
@@ -167,7 +137,7 @@ total_weekdays <- sum(!weekdays(seq.Date(start_date, Sys.Date(), by = "day")) %i
 actual <- nrow(df_completed)
 
 # Calculate target (25 enumerators * 6 surveys per day * number of weekdays)
-target <- 25 * 6 * total_weekdays
+target <- 5 * 5 * total_weekdays
 
 # Calculate percentage of actual surveys compared to target
 percentage_actual_vs_target <- (actual / target) * 100
@@ -184,7 +154,7 @@ Percentage of target
 
 
 ```{r}
-expected <- 4900
+expected <- 200
 
 percentage <- (nrow(df_completed) / expected) * 100
 ```
@@ -209,13 +179,12 @@ Percentage of Expected
 
 ```{r}
 # Define start date
-start_date <- as.Date("2024-11-04")
 
 # Calculate the total number of weekdays since start_date
 total_weekdays <- sum(!weekdays(seq.Date(start_date, Sys.Date(), by = "day")) %in% c("Saturday", "Sunday"))
 
 # Set daily target
-daily_target <- 6
+daily_target <- 5
 total_target <- total_weekdays * daily_target
 
 # Calculate actual surveys per username
@@ -269,7 +238,7 @@ plot_ly(data = average_perday,
         name = 'Average per Day') |> 
   add_trace(
     x = ~username,               # Match the x-values (usernames)
-    y = rep(6, length(average_perday$username)),  # Horizontal line at y = 6
+    y = rep(5, length(average_perday$username)),  # Horizontal line at y = 6
     type = 'scatter', 
     mode = 'lines', 
     line = list(color = 'red', dash = 'dash'),  # Customize line style (red, dashed)
@@ -341,7 +310,7 @@ total_collected_by_enumerator |>
 
 ```{r}
 
-df_completed1 <- df_completed |> filter(resp_category.receive_tree==1) 
+df_completed1 <- df_completed
   
 df_completed1$duration <- round(as.duration(interval(df_completed1$started_time, df_completed1$completed_time)) / dminutes(1))
 
@@ -384,17 +353,17 @@ Maximum Duration
 
 
 ```{r}
-less_than_8_minutes<- df_completed1 |> 
-  filter(duration <= 8)
+less_than_5_minutes<- df_completed1 |> 
+  filter(duration <= 5)
 ```
 
 
 
 
 ::: {.valuebox icon="clock" color="blue"}
-Survey below 8 minutes
+Survey below 5 minutes
 
-`r nrow(less_than_8_minutes)`
+`r nrow(less_than_5_minutes)`
 
 :::
 
@@ -446,12 +415,12 @@ plot_ly(
 
 
 
-#### Below 8 
+#### Below 5 
 
 ```{r}
 df_completed1 |> 
-  filter(duration <= 8) |> 
-  select(username, formid, started_time, completed_time, duration) |>
+  filter(duration <= 5) |> 
+  select(username, id, started_time, completed_time, duration) |>
   datatable(options = list(
     pageLength = 10,  # Number of rows per page
     autoWidth = TRUE,  # Adjusts column width
@@ -461,22 +430,22 @@ df_completed1 |>
 ```
 
 
-#### Below 8 enumurator 
+#### Below 5 enumurator 
 
 ```{r}
 # Filter and calculate counts for durations below 8 minutes
 summary_table <- df_completed1 |> 
-  filter(duration <= 8) |> 
+  filter(duration <= 5) |> 
   group_by(username) |> 
-  summarise(count_below_8 = n(), .groups = "drop")
+  summarise(count_below_5 = n(), .groups = "drop")
 
 # Create bar graph
 plot_ly(
   data = summary_table,
   x = ~username,
-  y = ~count_below_8,
+  y = ~count_below_5,
   type = "bar",
-  name = "Below 8 Minutes",
+  name = "Below 5 Minutes",
   marker = list(color = "steelblue")  # Custom color
 ) %>%
   layout(
@@ -495,7 +464,7 @@ plot_ly(
 ```{r}
 df_completed1 |> 
   filter(duration > mean(df_completed1$duration[!is.na(df_completed1$duration)])) |> 
-  select(username, formid, started_time, completed_time, duration) |>
+  select(username, id, started_time, completed_time, duration) |>
   datatable(options = list(
     pageLength = 10,  # Number of rows per page
     autoWidth = TRUE,  # Adjusts column width
@@ -564,28 +533,60 @@ plot_ly(
 
 ### Column {.tabset width="50%"}
 
-#### catagorization
+#### Tree ownership
 ```{r}
-
-df_completed |> select(resp_category.receive_tree, resp_category.oaf_direct, resp_category.receive_tree_inst, resp_category.inst_oaf_indirect) |> tbl_summary(missing="no", label = list(resp_category.receive_tree="Recived tree seedling from OAF and no-OAF",
-    resp_category.oaf_direct="Recived tree seedling from OAF (OAF Direct)",
-    resp_category.receive_tree_inst="Recived trees from instituitons",
-    resp_category.inst_oaf_indirect="Tree recived from institutions is OAF tree")) |>
-   modify_header(label = "**Respondent catagorization**") |> 
-    remove_row_type(type = "level", level_value = c("0", "dnk")) |> 
+df_completed |> 
+  mutate(across(c(n_dec_0to5, n_dec_6to10, n_dec_11to15, n_dec_16to20, n_dec_21), as.numeric)) |> 
+  select(own_dec_current, n_dec_0to5, n_dec_6to10, n_dec_11to15, n_dec_16to20, n_dec_21) |> 
+  tbl_summary(
+    missing = "no", 
+    statistic = all_continuous() ~ "{mean} ({max})",  # Calculate mean and max for numeric variables
+    label = list(
+      own_dec_current = "Own Decurrence",
+      n_dec_0to5 = "0 to 5 ages",
+      n_dec_6to10 = "6 to 10 ages",
+      n_dec_11to15 = "11 to 15 ages",
+      n_dec_16to20 = "16 to 20 ages",
+      n_dec_21 = "21 and above ages"
+    )
+  ) |>
+  modify_header(label = "**Tree ownership**") |> 
   as_gt()
-
 ```
 
-#### Demography 
+```{r}
+df_completed |> 
+  mutate(across(c(n_dec_0to5, n_dec_6to10, n_dec_11to15, n_dec_16to20, n_dec_21), as.numeric)) |> 
+  select(own_dec_current, n_dec_0to5, n_dec_6to10, n_dec_11to15, n_dec_16to20, n_dec_21) |> 
+  tbl_summary(
+    missing = "no", 
+    statistic = all_continuous() ~ "{mean} ({max})",  # Calculate mean and max for numeric variables
+    label = list(
+      own_dec_current = "Own Decurrence",
+      n_dec_0to5 = "0 to 5 ages",
+      n_dec_6to10 = "6 to 10 ages",
+      n_dec_11to15 = "11 to 15 ages",
+      n_dec_16to20 = "16 to 20 ages",
+      n_dec_21 = "21 and above ages"
+    )
+  ) |>
+  modify_header(label = "**Tree ownership**") |> 
+  as_gt()
+```
+
+#### Past use
 
 ```{r}
-df_completed |> filter(resp_category.oaf_direct==1) |> 
-  mutate(youth = if_else(demo.mcf_list.m_nmales > 0 | demo.mcf_list.m_nfemales > 0, 1, 0)) |>  select(demo.gender, demo.marital_status, demo.hh_size_total, demo.age, youth) |> tbl_summary(statistic = all_continuous() ~ "{mean} ({min}, {max})", missing = "no", label = list(demo.gender="Gender of Respondent",
-    demo.marital_status="Marital Status",
-    demo.hh_size_total="Household Size",
-    demo.age="Age of the respondent",
-    youth="% of households with youth HH member")) |>
+df_completed |> tabyl(u_dec_ongoing_phase)
+```
+
+
+```{r}
+df_completed |> select(u_dec_past, u_dec_ongoing_phase, a_dec_start_on, n_dec_now_on, u_dec_fullcut_phase, a_dec_start_fc, a_dec_end_fc) |> tbl_summary(statistic = all_continuous() ~ "{mean} ({min}, {max})", missing = "no", label = list(u_dec_past="Gender of Respondent",
+    u_dec_ongoing_phase="Marital Status",
+    a_dec_start_on="Household Size",
+    n_dec_now_on="Age of the respondent",
+    u_dec_fullcut_phase="% of households with youth HH member")) |>
    modify_header(label = "**Demographic characterstics of the respondents**") |> 
     remove_row_type(type = "level", level_value = c("0", "dnk")) |> 
   as_gt()
