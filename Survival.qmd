@@ -1,5 +1,5 @@
 ---
-title: "ETH 2025 Decurrence Tree Value Survey Dashboard"
+title: "ETH 2025 Survival Survey Dashboard"
 format: 
   dashboard:
     embed-resources: true
@@ -16,22 +16,32 @@ execute:
 ```{r, loadpackages}
 #| echo: false
 #| include: false
-library(tidyverse)
+# Data manipulation and cleaning
 library(forcats)
-library(targets)
-library("googlesheets4")
-library(janitor)
-library(ggthemes)
+library(janitor)        
 library(lubridate)
-library(plotly)
-library(highcharter)
-library(janitor)
-library(outliers)
+
+# Data import/export
+library(targets)
+library(googlesheets4)
+library(readr)
+library(httr)
+library(jsonlite)
+
+# Visualization
+library(ggthemes)
+library(plotly)         
+library(highcharter)    
+
+# Tables and reporting
 library(DT)
 library(gt)
 library(gtsummary)
-library(lubridate)
-library(plotly)
+
+# Statistical analysis
+library(outliers)
+
+# Custom functions
 tar_source("R/formatting.R")
 ```
 
@@ -41,20 +51,73 @@ tar_source("R/formatting.R")
 #| echo: false
 #| include: false
 gs4_auth(cache = ".secrets", email = "mohammed.seidhussen@oneacrefund.org")
-
 ```
 
 
 ```{r, import_data}
 #| echo: false
 #| include: false
-df<- read_sheet("https://docs.google.com/spreadsheets/d/1pej4wWw92xbIzlZ6maHG4cq9KZSMTKzSCAc01TX5K0s/edit?gid=731519399#gid=731519399", "Dataiku")
+# Configuration
+USERNAME <- "mohammed.seidhussen@oneacrefund.org"
+API_KEY <- "a749d18804539c5a2210817cda29630391a088bd"  # Get from CommCareHQ > Settings > API Key
+PROJECT_SPACE <- "oaf-ethiopia"  # Found in URL: /a/[project_space]/
+FORM_ID <- "be7d0dcc7d1fc9d616c6afebaf0cf831"  # Found in Form Export URLs
+
+# API Endpoint
+url <- paste0("https://www.commcarehq.org/a/", PROJECT_SPACE, "/api/v0.5/odata/forms/", FORM_ID, "/feed")
+
+# Pagination settings
+limit <- 2000
+offset <- 0
+all_records <- list()
+
+while (TRUE) {
+  # Set query parameters
+  query <- list(
+    limit = limit,
+    offset = offset
+  )
+
+  # Make API request
+  response <- GET(
+    url,
+    query = query,
+    authenticate(USERNAME, API_KEY, type = "basic")
+  )
+  
+  # Check response
+  if (status_code(response) != 200) {
+    cat(paste0("Error: ", status_code(response), "\n"))
+    cat(content(response, "text"), "\n")
+    break
+  }
+  
+  # Parse response
+  data <- fromJSON(content(response, "text"))
+  records <- data$value
+  
+  if (length(records) == 0) {
+    break
+  }
+  
+  # Add records to collection
+  all_records <- c(all_records, records)
+  
+  # Check if we have all records
+  if (length(records) < limit) {
+    break
+  }
+  
+  # Update offset for next page
+  offset <- offset + limit
+  cat(paste0("Fetched ", length(all_records), " records so far...\n"))
+}
+
+# Convert to data frame
+# Note: This approach works best if all records have the same structure
+df <- bind_rows(all_records)
 
 ```
-
-
-
-
 
 
 ```{r, change_to_dataframe}
@@ -83,11 +146,10 @@ df<-  df |>
 
 ```{r}
 df_completed <- df |> 
-  dplyr::filter(ru_dec_past==1 | ru_dec_past==0.5| rq_dec_past==1 | rq_dec_past==0.5)
+  dplyr::filter(consent==1)
 ```
 
-
-# Overview 
+# Overview
 
 
 ## Row 
@@ -128,7 +190,7 @@ Total Eligible Respondents
 
 ```{r}
 # Define start date
-start_date <- as.Date("2025-03-13")
+start_date <- as.Date("2025-07-14") # Replace with your actual start date
 
 # Calculate the total number of weekdays since start_date
 total_weekdays <- sum(!weekdays(seq.Date(start_date, Sys.Date(), by = "day")) %in% c("Saturday", "Sunday"))
@@ -137,7 +199,7 @@ total_weekdays <- sum(!weekdays(seq.Date(start_date, Sys.Date(), by = "day")) %i
 actual <- nrow(df_completed)
 
 # Calculate target (25 enumerators * 6 surveys per day * number of weekdays)
-target <- 5 * 5 * total_weekdays
+target <- 6 * 5 * total_weekdays
 
 # Calculate percentage of actual surveys compared to target
 percentage_actual_vs_target <- (actual / target) * 100
@@ -154,7 +216,10 @@ Percentage of target
 
 
 ```{r}
-expected <- 200
+expected <- 3600 # Replace with your actual expected number of surveys
+
+
+# Calculate percentage of completed surveys compared to expected
 
 percentage <- (nrow(df_completed) / expected) * 100
 ```
@@ -184,7 +249,8 @@ Percentage of Expected
 total_weekdays <- sum(!weekdays(seq.Date(start_date, Sys.Date(), by = "day")) %in% c("Saturday", "Sunday"))
 
 # Set daily target
-daily_target <- 5
+daily_target <- 6 # Assuming each enumerator is expected to complete 6 surveys per day
+# Calculate total target surveys
 total_target <- total_weekdays * daily_target
 
 # Calculate actual surveys per username
