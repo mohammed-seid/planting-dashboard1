@@ -20,6 +20,7 @@ execute:
 library(forcats)
 library(janitor)        
 library(lubridate)
+library(tidyverse)
 
 # Data import/export
 library(targets)
@@ -46,14 +47,6 @@ tar_source("R/formatting.R")
 ```
 
 
-
-```{r, authenticate_googlesheet}
-#| echo: false
-#| include: false
-gs4_auth(cache = ".secrets", email = "mohammed.seidhussen@oneacrefund.org")
-```
-
-
 ```{r, import_data}
 #| echo: false
 #| include: false
@@ -61,7 +54,7 @@ gs4_auth(cache = ".secrets", email = "mohammed.seidhussen@oneacrefund.org")
 USERNAME <- "mohammed.seidhussen@oneacrefund.org"
 API_KEY <- "a749d18804539c5a2210817cda29630391a088bd"  # Get from CommCareHQ > Settings > API Key
 PROJECT_SPACE <- "oaf-ethiopia"  # Found in URL: /a/[project_space]/
-FORM_ID <- "be7d0dcc7d1fc9d616c6afebaf0cf831"  # Found in Form Export URLs
+FORM_ID <- "e24ab639e5b7d1b609cf2894f7057b75"  # Found in Form Export URLs
 
 # API Endpoint
 url <- paste0("https://www.commcarehq.org/a/", PROJECT_SPACE, "/api/v0.5/odata/forms/", FORM_ID, "/feed")
@@ -119,6 +112,11 @@ df <- bind_rows(all_records)
 
 ```
 
+```{r, clean_data}
+# chnage --- into NA for all varailes 
+df <- df %>%
+  mutate(across(everything(), ~ na_if(., "---")))
+```
 
 ```{r, change_to_dataframe}
 #| echo: false
@@ -198,8 +196,8 @@ total_weekdays <- sum(!weekdays(seq.Date(start_date, Sys.Date(), by = "day")) %i
 # Calculate actual surveys (total number of rows in df_completed)
 actual <- nrow(df_completed)
 
-# Calculate target (25 enumerators * 6 surveys per day * number of weekdays)
-target <- 6 * 5 * total_weekdays
+# Calculate target (20 enumerators * 6 surveys per day * number of weekdays)
+target <- 20 * 5 * total_weekdays
 
 # Calculate percentage of actual surveys compared to target
 percentage_actual_vs_target <- (actual / target) * 100
@@ -249,7 +247,7 @@ Percentage of Expected
 total_weekdays <- sum(!weekdays(seq.Date(start_date, Sys.Date(), by = "day")) %in% c("Saturday", "Sunday"))
 
 # Set daily target
-daily_target <- 6 # Assuming each enumerator is expected to complete 6 surveys per day
+daily_target <- 5 # Assuming each enumerator is expected to complete 6 surveys per day
 # Calculate total target surveys
 total_target <- total_weekdays * daily_target
 
@@ -486,7 +484,7 @@ plot_ly(
 ```{r}
 df_completed1 |> 
   filter(duration <= 5) |> 
-  select(username, id, started_time, completed_time, duration) |>
+  select(username, unique_id, started_time, completed_time, duration) |>
   datatable(options = list(
     pageLength = 10,  # Number of rows per page
     autoWidth = TRUE,  # Adjusts column width
@@ -530,7 +528,7 @@ plot_ly(
 ```{r}
 df_completed1 |> 
   filter(duration > mean(df_completed1$duration[!is.na(df_completed1$duration)])) |> 
-  select(username, id, started_time, completed_time, duration) |>
+  select(username, unique_id, started_time, completed_time, duration) |>
   datatable(options = list(
     pageLength = 10,  # Number of rows per page
     autoWidth = TRUE,  # Adjusts column width
@@ -599,229 +597,37 @@ plot_ly(
 
 ### Column {.tabset width="50%"}
 
-#### Tree ownership
+#### survival Rate
 ```{r}
-df_completed |> 
-  mutate(across(c(n_dec_0to5, n_dec_6to10, n_dec_11to15, n_dec_16to20, n_dec_21), as.numeric)) |> 
-  select(own_dec_current, n_dec_0to5, n_dec_6to10, n_dec_11to15, n_dec_16to20, n_dec_21) |> 
-  tbl_summary(
-    missing = "no", 
-    statistic = all_continuous() ~ "{mean} ({max})",  # Calculate mean and max for numeric variables
-    label = list(
-      own_dec_current = "Own Decurrence",
-      n_dec_0to5 = "0 to 5 ages",
-      n_dec_6to10 = "6 to 10 ages",
-      n_dec_11to15 = "11 to 15 ages",
-      n_dec_16to20 = "16 to 20 ages",
-      n_dec_21 = "21 and above ages"
-    )
-  ) |>
-  modify_header(label = "**Tree ownership**") |> 
-  as_gt()
-```
+# Calculate survival rates for each species directly
+survival_rates <- df_completed %>%
+  mutate(across(c(starts_with("ps_num_planted_"), starts_with("num_surv_")), 
+                as.numeric)) %>%
+  # Calculate survival rates for each species
+  mutate(
+    gesho = (num_surv_gesho / ps_num_planted_gesho) * 100,
+    dec = (num_surv_dec / ps_num_planted_dec) * 100,
+    grev = (num_surv_grev / ps_num_planted_grev) * 100,
+    moringa = (num_surv_moringa / ps_num_planted_moringa) * 100,
+    coffee = (num_surv_coffee / ps_num_planted_coffee) * 100,
+    papaya = (num_surv_papaya / ps_num_planted_papaya) * 100,
+    wanza = (num_surv_wanza / ps_num_planted_wanza) * 100
+  ) %>%
+  select(gesho, dec, grev, moringa, coffee, papaya, wanza) %>%
+  # Handle cases where planted = 0 (avoid division by zero)
+  mutate(across(everything(), ~ ifelse(is.nan(.) | is.infinite(.), 0, .))) %>%
+  # Get mean survival rate for each species
+  summarize(across(everything(), mean, na.rm = TRUE)) %>%
+  pivot_longer(everything(), names_to = "species", values_to = "survival_rate")
 
-```{r}
-df_completed |> 
-  mutate(across(c(n_dec_0to5, n_dec_6to10, n_dec_11to15, n_dec_16to20, n_dec_21), as.numeric)) |> 
-  select(own_dec_current, n_dec_0to5, n_dec_6to10, n_dec_11to15, n_dec_16to20, n_dec_21) |> 
-  tbl_summary(
-    missing = "no", 
-    statistic = all_continuous() ~ "{mean} ({max})",  # Calculate mean and max for numeric variables
-    label = list(
-      own_dec_current = "Own Decurrence",
-      n_dec_0to5 = "0 to 5 ages",
-      n_dec_6to10 = "6 to 10 ages",
-      n_dec_11to15 = "11 to 15 ages",
-      n_dec_16to20 = "16 to 20 ages",
-      n_dec_21 = "21 and above ages"
-    )
-  ) |>
-  modify_header(label = "**Tree ownership**") |> 
-  as_gt()
-```
-
-#### Past use
-
-```{r}
-df_completed |> tabyl(u_dec_ongoing_phase)
-```
-
-
-```{r}
-df_completed |> select(u_dec_past, u_dec_ongoing_phase, a_dec_start_on, n_dec_now_on, u_dec_fullcut_phase, a_dec_start_fc, a_dec_end_fc) |> tbl_summary(statistic = all_continuous() ~ "{mean} ({min}, {max})", missing = "no", label = list(u_dec_past="Gender of Respondent",
-    u_dec_ongoing_phase="Marital Status",
-    a_dec_start_on="Household Size",
-    n_dec_now_on="Age of the respondent",
-    u_dec_fullcut_phase="% of households with youth HH member")) |>
-   modify_header(label = "**Demographic characterstics of the respondents**") |> 
-    remove_row_type(type = "level", level_value = c("0", "dnk")) |> 
-  as_gt()
-
-```
-
-### Column {.tabset width="50%"}
-
-
-#### Adopters
-
-```{r}
-
-n_farmer<- df_completed |> 
-  filter(resp_category.oaf_direct == 1) |> 
-  select(starts_with("oaf_tree_got_")) |> 
-  summarise(across(everything(), ~ sum(replace_na(., 0)), .names = "sum_{col}")) |> 
-  pivot_longer(cols = everything(), 
-               names_to = "variable", 
-               values_to = "number of adopters") |> 
-  mutate(variable = sub("sum_oaf_tree_got_", "", variable)) 
-
-
-average_tree<- df_completed |> 
-  filter(resp_category.oaf_direct == 1) |> 
-  select(matches("^oaf_trees\\.oaf_.*num_got$")) |> 
-  summarise(across(everything(), ~ round(mean(., na.rm = TRUE), 1), .names = "mean_{col}")) |> 
-  pivot_longer(cols = everything(), 
-               names_to = "variable", 
-               values_to = "Average Tree taken from the survey") |> 
-  mutate(variable = sub("mean_oaf_trees.oaf_", "", variable)) |> 
-  mutate(variable = gsub("\\.num_got", " ", variable))
-
-
-troster_average<- df_completed |> 
-  filter(resp_category.oaf_direct == 1) |> 
-  select(matches("^num_oaf_.*_troster$")) |> 
-  summarise(across(everything(), ~ round(mean(na_if(., 0), na.rm = TRUE), 1), .names = "mean_{col}")) |> 
-  pivot_longer(cols = everything(), 
-               names_to = "variable", 
-               values_to = "Average tree taken from troster") |> 
-  mutate(variable = sub("mean_num_oaf_", "", variable)) |> 
-  mutate(variable = gsub("\\_troster", " ", variable))
-
-n_farmer <- n_farmer |> 
-  mutate(variable = str_replace_all(variable, " ", ""))
-
-average_tree <- average_tree |> 
-  mutate(variable = str_replace_all(variable, " ", ""))
-
-troster_average <- troster_average |> 
-  mutate(variable = str_replace_all(variable, " ", ""))
-
-
-
-question_1 <- n_farmer |> 
-  left_join(average_tree, by = "variable") |> 
-  left_join(troster_average, by = "variable") 
-
-
-question_1 |> 
-  mutate(perc_diff_avg = ((`Average Tree taken from the survey` - `Average tree taken from troster`) / `Average tree taken from troster`) * 100) |> 
-  rename("Percentage differenc from the troster"=perc_diff_avg,
-         "Species"=variable) |> gt()
-
+# Create plot
+plot_ly(survival_rates, x = ~species, y = ~survival_rate, type = "bar",
+        text = ~paste0(round(survival_rate, 1), "%"), textposition = "auto") %>%
+  layout(
+    title = "Survival Rate by Species",
+    xaxis = list(title = "Species"),
+    yaxis = list(title = "Survival Rate (%)", range = c(0, 100))  # Set y-axis from 0-100%
+  )
 
 
 ```
-
-# Tree Taken 
-
-## Column {.tabset }
-
-
-
-```{r}
-
-graph_data<- df_completed |> 
-  filter(resp_category.oaf_direct == 1) |> 
-  group_by(username) |> 
-  select(username, matches("^oaf_trees\\.oaf_.*num_got$")) |> 
-  summarise(across(everything(), ~ round(mean(., na.rm = TRUE), 1), .names = "mean_{col}")) |> 
-  pivot_longer(cols = -username, 
-               names_to = "variable", 
-               values_to = "Average_Tree_taken_from_the_survey") |> 
-  mutate(variable = sub("mean_oaf_trees.oaf_", "", variable),
-         variable = gsub("\\.num_got", "", variable))
-
-
-```
-
-
-### arezelib
-
-```{r}
-
-graph_data |> filter(variable=="arzelib") |> 
-  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
-
-```
-
-### coffee
-
-```{r}
-
-graph_data |> filter(variable=="coffee") |> 
-  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
-
-```
-
-
-### dec
-
-```{r}
-
-graph_data |> filter(variable=="dec") |> 
-  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
-
-```
-
-
-
-### gesho
-
-```{r}
-
-graph_data |> filter(variable=="gesho") |> 
-  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
-
-```
-
-
-### grev
-
-```{r}
-
-graph_data |> filter(variable=="grev") |> 
-  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
-
-```
-
-
-
-### moringa
-
-```{r}
-
-graph_data |> filter(variable=="moringa") |> 
-  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
-
-```
-
-
-### papaya
-
-```{r}
-
-graph_data |> filter(variable=="papaya") |> 
-  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
-
-```
-
-
-### wanza
-
-```{r}
-
-graph_data |> filter(variable=="wanza") |> 
-  hchart('bar', hcaes(x = 'username', y = 'Average_Tree_taken_from_the_survey'))
-
-```
-
